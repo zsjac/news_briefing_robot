@@ -25,7 +25,8 @@ def run():
         
         # 访问链接
         target_url = "https://tv.cctv.com/lm/xwlb/index.shtml" # 目标列表页
-        page.goto(target_url)
+        # 增加超时时间到 60 秒，并且只要 DOM 加载完就开始截图，不用等所有视频加载完
+        page.goto(target_url, timeout=60000, wait_until='domcontentloaded')
         print(f"已打开页面: {target_url}")
         
         # 等待加载并截图
