@@ -7,7 +7,7 @@ from playwright.sync_api import sync_playwright
 # 1. 配置信息（从 GitHub Secrets 读取）
 COZE_TOKEN = os.environ.get('COZE_TOKEN')
 WORKFLOW_ID = os.environ.get('WORKFLOW_ID')
-IMGBB_KEY = os.environ.get('IMGBB_KEY') # 建议也存入Secret
+IMGBB_KEY = "00e27c248266271114f0a3c258ab6520"
 
 def get_latest_cctv_url():
     """自动获取今日新闻联播的链接"""
