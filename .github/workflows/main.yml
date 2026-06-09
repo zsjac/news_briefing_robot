@@ -23,4 +23,8 @@ jobs:
           playwright install chromium
 
       - name: 执行截图脚本
+        env:
+          COZE_TOKEN: ${{ secrets.COZE_TOKEN }}
+          WORKFLOW_ID: ${{ secrets.WORKFLOW_ID }}
+          IMGBB_KEY: ${{ secrets.IMGBB_KEY }}  # <--- 这一行必须有！
         run: python screenshot.py
