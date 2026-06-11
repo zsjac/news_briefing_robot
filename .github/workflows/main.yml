@@ -1,8 +1,10 @@
 name: 高清视频帧抓取机器人
 on:
   schedule:
-    - cron: '10 13 * * *' # 北京时间 21:10
-  workflow_dispatch: 
+    - cron: '10 13 * * *' # 北京时间 21:10 定时抓取
+  workflow_dispatch:      # 允许手动点击运行
+  repository_dispatch:    # <--- 新增：允许外部（如 Coze）通过 API 触发
+    types: [capture_news_video]
 
 jobs:
   capture:
@@ -30,4 +32,6 @@ jobs:
           COZE_TOKEN: ${{ secrets.COZE_TOKEN }}
           WORKFLOW_ID: ${{ secrets.WORKFLOW_ID }}
           IMGBB_KEY: ${{ secrets.IMGBB_KEY }}
+          # 新增：接收来自 Coze 的 client_payload 里的 url
+          TARGET_URL: ${{ github.event.client_payload.url }} 
         run: python screenshot.py
