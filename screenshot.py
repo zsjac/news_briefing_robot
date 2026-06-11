@@ -1,80 +1,48 @@
-import os
-import requests
-import time
-from playwright.sync_api import sync_playwright
+import os, requests, subprocess, time
 
-# 1. 配置信息
+# 1. 变量读取
 COZE_TOKEN = os.environ.get('COZE_TOKEN')
 WORKFLOW_ID = os.environ.get('WORKFLOW_ID')
 IMGBB_KEY = os.environ.get('IMGBB_KEY')
 
-def upload_to_imgbb(file_path):
-    with open(file_path, "rb") as f:
-        res = requests.post(
-            "https://api.imgbb.com/1/upload",
-            params={"key": IMGBB_KEY},
-            files={"image": f}
-        )
-        return res.json()['data']['url'] if res.status_code == 200 else None
-
 def run():
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        # 模拟高清显示器
-        page = browser.new_page(viewport={'width': 1920, 'height': 1080})
-        
-        # 步骤 1: 寻找今日完整版
-        page.goto("https://tv.cctv.com/lm/xwlb/index.shtml", wait_until='domcontentloaded')
-        target_link = page.locator("a:has-text('完整版')").first.get_attribute("href")
-        
-        # 步骤 2: 进入视频页
-        print(f"正在进入视频页: {target_link}")
-        page.goto(target_link, wait_until='domcontentloaded')
-        
-        # 【关键技术】通过 JS 强制视频跳转到 34 秒并静音
-        # 34 秒通常是主播名字条出现的稳定时刻
-        page.evaluate("""() => {
-            const video = document.querySelector('video');
-            if (video) {
-                video.muted = true;
-                video.currentTime = 34; 
-                video.pause(); 
-            }
-        }""")
-        
-        # 等待 3 秒让画面渲染稳定
-        time.sleep(3)
+    # 步骤 A: 找到今日新闻联播页面 (以列表页作为入口)
+    # 央视网列表页
+    list_page = "https://tv.cctv.com/lm/xwlb/index.shtml"
+    
+    # 步骤 B: 使用 yt-dlp 配合 ffmpeg 抽帧
+    # -ss 00:00:34: 跳到34秒 | -frames:v 5: 截5帧 | -q:v 2: 高质量
+    # 我们直接让 yt-dlp 寻找页面内的视频流并交给 ffmpeg 处理
+    print("🚀 正在提取高清原始视频帧...")
+    
+    # 这是一个组合命令：找链接 -> 传给 ffmpeg -> 输出 5 张图
+    # 我们尝试从列表页自动抓取最新的地址
+    try:
+        cmd = f'ffmpeg -ss 00:00:34 -i $(yt-dlp -g --playlist-items 1 "{list_page}") -frames:v 5 -q:v 2 frame_%d.jpg'
+        subprocess.run(cmd, shell=True, check=True)
+        print("✅ 高清帧提取完成")
+    except Exception as e:
+        print(f"❌ 提取失败: {e}")
+        return
 
-        # 步骤 3: 连截 5 帧 (直接针对视频元素截图)
-        img_urls = []
-        # 定位视频播放器元素，直接对它截图就没有黑边和进度条了
-        video_element = page.locator("video")
-        
-        for i in range(5):
-            path = f"frame_{i}.jpg"
-            # 【核心修改】只对 video 元素截图，自动获得 16:9 比例
-            video_element.screenshot(path=path)
-            
-            # 上传
-            url = upload_to_imgbb(path)
-            if url: img_urls.append(url)
-            
-            # 微调时间（每帧走 0.2 秒）
-            page.evaluate("document.querySelector('video').currentTime += 0.2")
-            time.sleep(0.5)
-
-        browser.close()
-
-    # 步骤 4: 通知 Coze
+    # 步骤 C: 批量上传到 ImgBB
+    img_urls = []
+    for i in range(1, 6):
+        file_name = f"frame_{i}.jpg"
+        if os.path.exists(file_name):
+            with open(file_name, "rb") as f:
+                res = requests.post("https://api.imgbb.com/1/upload", params={"key": IMGBB_KEY}, files={"image": f})
+                if res.status_code == 200:
+                    img_urls.append(res.json()['data']['url'])
+    
+    # 步骤 D: 通知 Coze
     if img_urls:
-        coze_url = "https://api.coze.cn/v1/workflow/run"
-        headers = {"Authorization": f"Bearer {COZE_TOKEN}", "Content-Type": "application/json"}
-        payload = {
-            "workflow_id": WORKFLOW_ID,
-            "parameters": {"img_list": ",".join(img_urls)}
-        }
-        requests.post(coze_url, headers=headers, json=payload)
-        print(f"✅ 成功发送 {len(img_urls)} 张纯净截图到 Coze")
+        print(f"✅ 成功获取 {len(img_urls)} 张高清图，通知 Coze...")
+        requests.post(
+            "https://api.coze.cn/v1/workflow/run",
+            headers={"Authorization": f"Bearer {COZE_TOKEN}", "Content-Type": "application/json"},
+            json={"workflow_id": WORKFLOW_ID, "parameters": {"img_list": ",".join(img_urls)}}
+        )
 
 if __name__ == "__main__":
     run()
