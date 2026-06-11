@@ -1,30 +1,33 @@
-name: 每天自动抓取新闻截图
+name: 高清视频帧抓取机器人
 on:
   schedule:
-    # 每天北京时间 21:10 运行 (UTC 13:10)
-    - cron: '10 13 * * *'
-  workflow_dispatch: # 允许你手动点击运行
+    - cron: '10 13 * * *' # 北京时间 21:10
+  workflow_dispatch: 
 
 jobs:
   capture:
-    runs-on: ubuntu-latest # 使用云端 Ubuntu 系统
+    runs-on: ubuntu-latest
     steps:
       - name: 检出代码
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: 设置 Python 环境
-        uses: actions/setup-python@v4
+      - name: 设置 Python 3.10
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: 安装浏览器和依赖
+      - name: 安装系统级工具 (FFmpeg)
         run: |
-          pip install playwright requests
-          playwright install chromium
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
-      - name: 执行截图脚本
+      - name: 安装 Python 依赖 (yt-dlp & requests)
+        run: |
+          pip install yt-dlp requests
+
+      - name: 执行高清抽帧脚本
         env:
           COZE_TOKEN: ${{ secrets.COZE_TOKEN }}
           WORKFLOW_ID: ${{ secrets.WORKFLOW_ID }}
-          IMGBB_KEY: ${{ secrets.IMGBB_KEY }}  # <--- 这一行必须有！
+          IMGBB_KEY: ${{ secrets.IMGBB_KEY }}
         run: python screenshot.py
