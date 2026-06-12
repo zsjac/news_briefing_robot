@@ -70,9 +70,9 @@ def run():
         }
         payload = {
             "workflow_id": WORKFLOW_ID,
-            "parameters": {
-                # 将 5 个 URL 用逗号连接成字符串发回 Coze
-                "img_list": ",".join(img_urls) 
+           "parameters": {
+                            "img_list": img_urls  # 直接传列表，不要加 .join
+                         }
             }
         }
         
